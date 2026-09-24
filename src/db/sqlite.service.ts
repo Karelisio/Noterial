@@ -9,8 +9,11 @@ import type { Note } from '@/lib/types';
 
 const DB_NAME = 'noterial.db';
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS notes (
+// Statements are executed one at a time (not joined into one semicolon
+// string): the plugin's statement splitter is not BEGIN/END-aware and
+// shreds multi-statement trigger blocks, so notes_fts is kept in sync from
+// application code instead of SQL triggers — see each mutation method below.
+const CREATE_NOTES_TABLE = `CREATE TABLE IF NOT EXISTS notes (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   title TEXT NOT NULL DEFAULT '',
@@ -19,23 +22,7 @@ CREATE TABLE IF NOT EXISTS notes (
   updated_at TEXT NOT NULL,
   deleted_at TEXT,
   synced_at TEXT
-);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
-  title, content, content='notes', content_rowid='rowid'
-);
-
-CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
-  INSERT INTO notes_fts(rowid, title, content) VALUES (new.rowid, new.title, new.content);
-END;
-CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
-  INSERT INTO notes_fts(notes_fts, rowid, title, content) VALUES ('delete', old.rowid, old.title, old.content);
-END;
-CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
-  INSERT INTO notes_fts(notes_fts, rowid, title, content) VALUES ('delete', old.rowid, old.title, old.content);
-  INSERT INTO notes_fts(rowid, title, content) VALUES (new.rowid, new.title, new.content);
-END;
-`;
+)`;
 
 class SqliteService {
   private sqlite = new SQLiteConnection(CapacitorSQLite);
@@ -55,12 +42,38 @@ class SqliteService {
       ? await this.sqlite.retrieveConnection(DB_NAME, false)
       : await this.sqlite.createConnection(DB_NAME, false, 'no-encryption', 1, false);
     await this.db.open();
-    await this.db.execute(SCHEMA);
+    await this.db.execute(CREATE_NOTES_TABLE);
+    await this.migrateFtsSchema();
+  }
+
+  /**
+   * Ensures notes_fts is the plain (id, title, content) shape this service
+   * expects. Installs from before this fix may have a legacy external-content
+   * notes_fts (or a partially-created one, since the broken trigger schema
+   * aborted mid-way) — detect and rebuild it from notes when needed.
+   */
+  private async migrateFtsSchema() {
+    const info = await this.db.query(`PRAGMA table_info(notes_fts)`);
+    const hasIdColumn = (info.values ?? []).some((column: { name: string }) => column.name === 'id');
+    if (hasIdColumn) return;
+
+    for (const trigger of ['notes_ai', 'notes_ad', 'notes_au']) {
+      await this.db.execute(`DROP TRIGGER IF EXISTS ${trigger}`);
+    }
+    await this.db.execute(`DROP TABLE IF EXISTS notes_fts`);
+    await this.db.execute(`CREATE VIRTUAL TABLE notes_fts USING fts5(id UNINDEXED, title, content)`);
+    await this.db.execute(`INSERT INTO notes_fts (id, title, content) SELECT id, title, content FROM notes`);
   }
 
   async whenReady() {
     await this.ready;
     return this.db;
+  }
+
+  private async indexFts(id: string, title: string, content: string) {
+    const db = await this.whenReady();
+    await db.run(`DELETE FROM notes_fts WHERE id = ?`, [id]);
+    await db.run(`INSERT INTO notes_fts (id, title, content) VALUES (?, ?, ?)`, [id, title, content]);
   }
 
   async createNote(userId: string, title: string, content: string): Promise<Note> {
@@ -81,6 +94,7 @@ class SqliteService {
        VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)`,
       [note.id, note.user_id, note.title, note.content, note.created_at, note.updated_at],
     );
+    await this.indexFts(note.id, note.title, note.content);
     return note;
   }
 
@@ -93,6 +107,7 @@ class SqliteService {
       now,
       id,
     ]);
+    await this.indexFts(id, title, content);
   }
 
   async softDelete(id: string) {
@@ -110,6 +125,7 @@ class SqliteService {
   async hardDelete(id: string) {
     const db = await this.whenReady();
     await db.run(`DELETE FROM notes WHERE id = ?`, [id]);
+    await db.run(`DELETE FROM notes_fts WHERE id = ?`, [id]);
   }
 
   async listActive(userId: string): Promise<Note[]> {
@@ -135,7 +151,7 @@ class SqliteService {
     if (!query.trim()) return this.listActive(userId);
     const res = await db.query(
       `SELECT notes.* FROM notes
-       JOIN notes_fts ON notes.rowid = notes_fts.rowid
+       JOIN notes_fts ON notes.id = notes_fts.id
        WHERE notes.user_id = ? AND notes.deleted_at IS NULL AND notes_fts MATCH ?
        ORDER BY notes.updated_at DESC`,
       [userId, `${query}*`],
@@ -193,6 +209,7 @@ class SqliteService {
         note.synced_at,
       ],
     );
+    await this.indexFts(note.id, note.title, note.content);
   }
 }
 
