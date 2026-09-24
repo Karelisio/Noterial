@@ -30,6 +30,10 @@ Noterial is an offline-first notes app: **SQLite on-device is the source of trut
 
 `src/hooks/useNotes.ts` is the bridge between components and `sqliteService`/`syncService`: every mutation (`createNote`, `updateNote`, `deleteNote`) writes locally first, then calls `syncService.scheduleSync()`.
 
+### Account is optional
+
+The app never gates the UI behind login. `src/hooks/useAuth.ts` resolves a `userId` that is either the real Supabase account id (once logged in) or a stable per-device id from `src/lib/localUser.ts` (`getOrCreateLocalUserId`, persisted via `@capacitor/preferences`) — `App.tsx` renders `HomePage` as soon as either is available, never blocking on auth. `syncService.syncNow()` independently checks `supabase.auth.getUser()` and silently no-ops when nobody is logged in, so notes owned by the local id simply stay local. Logging in (from `SettingsPage`, not a full-screen gate) fires `sqliteService.reassignOwner(localId, realUserId)` in `useAuth`'s `onAuthStateChange` handler, which reassigns locally-owned notes to the account and clears their `synced_at` so the next `scheduleSync()` pushes them.
+
 The local `notes` table and the Supabase `public.notes` table share the same shape (`id`, `user_id`, `title`, `content`, `created_at`, `updated_at`, `deleted_at`, `synced_at` — see `supabase/migrations/0001_notes.sql`). `id` is a client-generated UUID so creates never round-trip through the server. Deletion is soft (`deleted_at`); the trash view and hard delete live in `Trash.tsx`.
 
 ### Supabase project

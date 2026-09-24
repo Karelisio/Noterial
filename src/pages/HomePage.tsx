@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { Box, Fab, AppBar, Toolbar, Typography, useMediaQuery, IconButton } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { NoteList } from '@/components/NoteList';
 import { NoteEditor } from '@/components/NoteEditor';
 import { SearchBar } from '@/components/SearchBar';
 import { SyncBadge } from '@/components/SyncBadge';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { useNotes } from '@/hooks/useNotes';
 import type { Note } from '@/lib/types';
 
-export function HomePage({ userId }: { userId: string }) {
+export function HomePage({ userId, onOpenSettings }: { userId: string; onOpenSettings: () => void }) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Note | null>(null);
   const { notes, loading, error, createNote, updateNote } = useNotes(userId, query);
@@ -37,7 +37,9 @@ export function HomePage({ userId }: { userId: string }) {
             Noterial
           </Typography>
           <SyncBadge />
-          <ThemeToggle />
+          <IconButton onClick={onOpenSettings} aria-label="paramètres">
+            <SettingsIcon />
+          </IconButton>
         </Toolbar>
       </AppBar>
 

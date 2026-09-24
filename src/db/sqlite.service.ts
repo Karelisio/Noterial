@@ -153,6 +153,17 @@ class SqliteService {
     return (res.values as Note[]) ?? [];
   }
 
+  /** Reassign locally-owned (pre-login) notes to a real account so they become eligible for sync. */
+  async reassignOwner(fromUserId: string, toUserId: string) {
+    const db = await this.whenReady();
+    const now = new Date().toISOString();
+    await db.run(`UPDATE notes SET user_id = ?, synced_at = NULL, updated_at = ? WHERE user_id = ?`, [
+      toUserId,
+      now,
+      fromUserId,
+    ]);
+  }
+
   async markSynced(id: string, syncedAt: string) {
     const db = await this.whenReady();
     await db.run(`UPDATE notes SET synced_at = ? WHERE id = ?`, [syncedAt, id]);
