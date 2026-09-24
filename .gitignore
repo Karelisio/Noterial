@@ -8,3 +8,4 @@ android/app/release.keystore
 .env.local
 *.local
 .DS_Store
+*.tsbuildinfo

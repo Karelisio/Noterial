@@ -16,7 +16,9 @@ class SyncService {
   onStatusChange(fn: Listener) {
     this.listeners.add(fn);
     fn(this.status);
-    return () => this.listeners.delete(fn);
+    return () => {
+      this.listeners.delete(fn);
+    };
   }
 
   private setStatus(s: SyncStatus) {

@@ -20,6 +20,8 @@
     "@capacitor/network": "^6.0.2",
     "@capacitor/preferences": "^6.0.2",
     "@capacitor/share": "^6.0.2",
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
     "@mui/icons-material": "^5.16.7",
     "@mui/material": "^5.16.7",
     "@supabase/supabase-js": "^2.45.4",
