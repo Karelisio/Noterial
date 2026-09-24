@@ -1,5 +1,5 @@
 const REPO = 'karelisio/noterial';
-const CURRENT_VERSION = 'v0.1.0';
+const CURRENT_VERSION = 'v0.1.1';
 
 /** Vérifie la dernière release GitHub au lancement ; affiche un snackbar si une version plus récente existe. */
 export async function checkForUpdate() {
