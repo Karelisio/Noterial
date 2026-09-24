@@ -1,3 +1,6 @@
+-- Noterial app tables. This migration was applied to the "mago" Supabase
+-- project (shared with the unrelated mago app) since the org's free-project
+-- quota was full. See table comment below and README for context.
 create table if not exists public.notes (
   id uuid primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -8,6 +11,8 @@ create table if not exists public.notes (
   deleted_at timestamptz,
   synced_at timestamptz
 );
+
+comment on table public.notes is 'Noterial app: user notes. Shares this project with the mago app (unrelated tables).';
 
 create index if not exists notes_user_updated_idx on public.notes (user_id, updated_at);
 

@@ -64,6 +64,16 @@ npx cap sync android
 npx cap open android
 ```
 
+## Configuration Supabase
+
+Le projet Supabase utilisé est **"mago"** (`xssochyjgxwwmvtweusv`), partagé avec
+l'app mago existante (quota de projets gratuits atteint sur l'organisation). La
+table `notes` de Noterial y est isolée par RLS (`supabase/migrations/0001_notes.sql`)
+et ne touche à aucune table de mago. Les secrets GitHub Actions
+(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`) sont à
+configurer manuellement dans Settings → Secrets and variables → Actions.
+
 ## Modèle de données
 
 Identique en local (SQLite) et distant (Supabase Postgres) :
