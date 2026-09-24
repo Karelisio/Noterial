@@ -44,6 +44,8 @@ This app currently shares its Supabase project (`xssochyjgxwwmvtweusv`, named "m
 
 `src/theme/ThemeProvider.tsx` wraps MUI's `ThemeProvider`/`createTheme` and resolves a `light`/`dark`/`auto` mode (persisted via `@capacitor/preferences`) against `window.matchMedia('(prefers-color-scheme: dark)')` when `auto` is selected. `useThemeMode()` is the only way components should read/set theme — don't read `Preferences` or `matchMedia` directly elsewhere.
 
+On Android 12+, the primary/secondary colors and background/surface/text roles follow the device wallpaper (Material You) instead of the fixed violet palette: `DynamicColorPlugin.java` (a native Capacitor plugin, registered in `MainActivity.java`) reads the system's `android.R.color.system_accent*`/`system_neutral*` resources and returns both light and dark variants; `src/lib/dynamicColor.ts` wraps it (`getSystemDynamicColors()`, resolving to `null` below Android 12 or off-Android) and `ThemeProvider` feeds the result into `createTheme()`, falling back to the fixed palette when unavailable. This was ported from the sibling apps Orbit/Mago specifically so a future widget could read the exact same native plugin and never visually diverge from the app — keep that shape (role names, hex format) in sync if you touch either side.
+
 ### Responsive layout
 
 `src/pages/HomePage.tsx` switches between a mobile (list OR detail, with back navigation) and tablet (list AND detail side by side) layout based on a single `useMediaQuery('(min-width:900px)')` check. There is no separate router for this — it's conditional rendering driven by that breakpoint.
